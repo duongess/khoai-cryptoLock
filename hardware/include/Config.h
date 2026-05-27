@@ -18,13 +18,13 @@
 // ==========================================
 // 2. CẤU HÌNH TỐC ĐỘ (BAUD RATE)
 // ==========================================
-#define PC_BAUD_RATE 115200   // Giao tiếp cáp USB với Processing
+#define PC_BAUD_RATE 9600   // Giao tiếp cáp USB với Processing
 #define BT_BAUD_RATE 38400    // Giao tiếp HC-05
 
 // ==========================================
 // 3. THÔNG SỐ ĐỘNG CƠ (28BYJ-48)
 // ==========================================
-#define MOTOR_MAX_SPEED 1000.0
+#define MOTOR_MAX_SPEED 2000.0
 #define MOTOR_ACCELERATION 500.0
 #define STEPS_PER_REV 2048
 

@@ -10,6 +10,7 @@ bool isDoorOpen = false;
 void Motor_Init() {
   stepper.setMaxSpeed(MOTOR_MAX_SPEED);
   stepper.setAcceleration(MOTOR_ACCELERATION);
+  stepper.setCurrentPosition(0);
   Serial.println("[LOG] Motor Init Done");
 }
 
@@ -21,7 +22,7 @@ void Motor_Run() {
 void Motor_OpenDoor() {
   if (!isDoorOpen) {
     PC_SendMessage("LOG", "Mo cua...");
-    stepper.moveTo(STEPS_PER_REV / 4); // Quay 1/4 vong
+    stepper.moveTo(STEPS_PER_REV); // Quay 1/4 vong
     isDoorOpen = true;
   }
 }
@@ -29,7 +30,7 @@ void Motor_OpenDoor() {
 void Motor_CloseDoor() {
   if (isDoorOpen) {
     PC_SendMessage("LOG", "Dong cua...");
-    stepper.moveTo(0); // Ve vi tri goc
+    stepper.moveTo(-STEPS_PER_REV); // Ve vi tri goc
     isDoorOpen = false;
   }
 }
