@@ -3,31 +3,32 @@ void serialEvent(Serial port) {
   
   if (inString != null) {
     inString = trim(inString);
-    
     if (inString.startsWith("[REQ]")) {
-      // Tách lấy phần payload phía sau chuỗi [REQ]
       String payload = inString.substring(5).trim();
       
-      // 1. Xử lý kịch bản Đóng Cửa (Không cần giải mã ECC)
-      if (payload.equals("CLOSE_DOOR_CMD")) {
-        sendCommand("[CMD]DO_CLOSE");
-        addLog("APP COMMAND", "DONG CUA");
-        return; // Thoát hàm luôn, không chạy xuống phần verifyECC nữa
+      if (payload.startsWith("KEY_REQUEST")) {
+        verifyECC(payload);
+        sendCommand("[CMD]ACCEPT");
       }
-      
-      // 2. Xử lý kịch bản Mở Cửa (Bắt buộc phải qua giải mã)
-      boolean isValid = verifyECC(payload);
-      
-      if (isValid) {
+      else if (payload.startsWith("OPEN_DOOR_CMD") && checkAccept(payload)) {
         sendCommand("[CMD]DO_OPEN");
-        addLog(payload, "HOP LE");
-      } else {
+      }
+      else if (payload.startsWith("CLOSE_DOOR_CMD") && checkAccept(payload)) {
+        sendCommand("[CMD]DO_CLOSE");
+      }
+      else {
         sendCommand("[CMD]ERROR_KEY");
-        addLog(payload, "TU CHOI");
+        // Tu dong ghi nhan key bi tu choi va luu vao file
+        String[] parts = split(payload, " ");
+        if (parts.length >= 2) {
+          String invalidKey = parts[1];
+          String timeStamp = nf(hour(), 2) + ":" + nf(minute(), 2) + ":" + nf(second(), 2);
+          logs.add(new KeyLog(invalidKey, timeStamp, "DECLINE"));
+          saveKeysDB();
+        }
       }
     } 
     else if (inString.startsWith("[LOG]")) {
-      // In log hệ thống ra console của Arduino (không hiện lên UI)
       println("ARDUINO: " + inString);
     }
   }
@@ -36,8 +37,5 @@ void serialEvent(Serial port) {
 void sendCommand(String cmd) {
   if (myPort != null) {
     myPort.write(cmd + "\n");
-    println("[LOG] Da gui lenh xuong Arduino: " + cmd);
-  } else {
-    println("Loi: Cong Serial chua mo");
   }
 }

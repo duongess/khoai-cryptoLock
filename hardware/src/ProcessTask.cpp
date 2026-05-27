@@ -26,6 +26,9 @@ void PC_Listen() {
         Motor_CloseDoor();
         BT_SendMessage("DOOR_CLOSED"); 
       }
+      else if (pcBuffer == "[CMD]ACCEPT") {
+        BT_SendMessage("APPROVED"); 
+      }
       else if (pcBuffer == "[CMD]ERROR_KEY") {
         BT_SendMessage("AUTH_FAILED"); 
       }

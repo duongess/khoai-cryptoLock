@@ -2,29 +2,28 @@ import processing.serial.*;
 
 Serial myPort;
 PFont robotoFont;
+// Danh sach quan ly key load tu file keys.db
 ArrayList<KeyLog> logs = new ArrayList<KeyLog>();
 
 void setup() {
   size(850, 600);
   smooth();
-  
-  // Nạp font chữ để giao diện không bị lỗi font
   robotoFont = createFont("Roboto.ttf", 16);
   textFont(robotoFont);
   
+  // Tai toan bo du lieu key tu file database luc khoi dong
+  loadKeysDB();
+  
   try {
-    // CHÚ Ý: Đổi "/dev/ttyACM0" thành tên cổng COM thực tế của bạn (VD: "COM3")
-    myPort = new Serial(this, "/dev/ttyACM0", 9600); 
+    myPort = new Serial(this, "/dev/ttyACM0", 9600);
     myPort.bufferUntil('\n');
-    addLog("SYSTEM", "Mo cong Serial thanh cong");
   } catch(Exception e) {
     println("Loi mo cong Serial. Kiem tra lai day cap.");
-    addLog("SYSTEM", "LOI KET NOI SERIAL");
   }
 }
 
 void draw() {
-  background(30, 35, 45); // Nền xám tối
+  background(30, 35, 45); 
   drawDashboard();
 }
 
@@ -32,25 +31,46 @@ void mousePressed() {
   handleMouseClick();
 }
 
-// Hàm thêm log vào mảng, chỉ giữ lại 10 phần tử mới nhất
-void addLog(String keyData, String status) {
-  String timeStamp = nf(hour(), 2) + ":" + nf(minute(), 2) + ":" + nf(second(), 2);
-  logs.add(new KeyLog(timeStamp, keyData, status));
+// Hàm doc du lieu tu file keys.db vao bo nho
+void loadKeysDB() {
+  logs.clear();
+  String[] lines = loadStrings("data/keys.db");
   
-  if (logs.size() > 10) {
-    logs.remove(0); 
+  // Neu file khong ton tai (tra ve null), tien hanh khoi tao file trong moi
+  if (lines == null) {
+    String[] emptyData = new String[0];
+    saveStrings("data/keys.db", emptyData);
+    println("File database khong ton tai. Da tu dong khoi tao keys.db moi.");
+  } else {
+    // Neu file da ton tai, thuc hien phan tach du lieu de nap vao chuong trinh
+    for (String line : lines) {
+      String[] parts = split(line, ",");
+      if (parts.length >= 3) {
+        logs.add(new KeyLog(parts[0], parts[1], parts[2]));
+      }
+    }
   }
 }
 
-// Lớp đối tượng lưu trữ dữ liệu 1 dòng log
+// Hàm luu danh sach hien tai xuong file keys.db
+void saveKeysDB() {
+  String[] lines = new String[logs.size()];
+  for (int i = 0; i < logs.size(); i++) {
+    KeyLog l = logs.get(i);
+    lines[i] = l.keyData + "," + l.time + "," + l.status;
+  }
+  saveStrings("data/keys.db", lines);
+}
+
+// Lop doi tuong luu thong tin khoa
 class KeyLog {
-  String time;
   String keyData;
-  String status;
+  String time;
+  String status; // "ACCEPT" hoac "DECLINE"
   
-  KeyLog(String t, String k, String s) {
-    time = t;
+  KeyLog(String k, String t, String s) {
     keyData = k;
+    time = t;
     status = s;
   }
 }
