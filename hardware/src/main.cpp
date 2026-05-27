@@ -1,18 +1,20 @@
 #include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
+#include "Config.h"
+#include "MotorTask.h"
+#include "BluetoothTask.h"
+#include "ProcessTask.h"
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  PC_Init();
+  BT_Init();
+  Motor_Init();
+  
+  PC_SendMessage("LOG", "SYS_READY");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
-
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  // Goi lien tuc khong delay
+  Motor_Run();
+  BT_Listen();
+  PC_Listen();
 }

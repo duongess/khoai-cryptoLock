@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
 
 // ==========================================
 // THÀNH PHẦN 1: CÁC BIẾN TOÀN CỤC
@@ -45,51 +46,92 @@ class AuthGateWay extends StatefulWidget {
 }
 
 class _AuthGateWayState extends State<AuthGateWay> {
+  // Biến lưu trữ luồng kết nối để truyền sang màn hình điều khiển
+  BluetoothConnection? _connection;
+
   @override
   void initState() {
-    super.initState(); // FIX 1: Đổi thành super.initState()
-    _startBluetoothConnectionMock();
+    super.initState();
+    _startRealBluetoothConnection(); // Gọi hàm thực tế thay vì Mock
   }
 
-  Future<void> _startBluetoothConnectionMock() async {
+  // Hàm kết nối Bluetooth thật
+  Future<void> _startRealBluetoothConnection() async {
+    // 1. Xin quyền phần cứng
     Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
       Permission.location,
     ].request();
 
-    // FIX 2: Đổi bluetoothOpacity thành bluetoothScan
-    if (statuses[Permission.bluetoothScan] == PermissionStatus.granted &&
-        statuses[Permission.bluetoothConnect] == PermissionStatus.granted) {
-        
-        print("Đã có đủ quyền phần cứng, bắt đầu kết nối HC-05...");
-        
-        // Giả lập thời gian kết nối
-        Timer(const Duration(seconds: 4), () {
-          setState(() {
-            currentAuthStatus = AuthStatus.success; 
-          });
+    if (statuses[Permission.bluetoothScan] != PermissionStatus.granted ||
+        statuses[Permission.bluetoothConnect] != PermissionStatus.granted) {
+      print("Lỗi: Người dùng không cấp quyền Bluetooth!");
+      setState(() { currentAuthStatus = AuthStatus.failed; });
+      return;
+    }
+
+    // 2. Yêu cầu bật Bluetooth nếu đang tắt
+    bool? isEnabled = await FlutterBluetoothSerial.instance.isEnabled;
+    if (isEnabled == false) {
+      isEnabled = await FlutterBluetoothSerial.instance.requestEnable();
+      if (isEnabled != true) {
+        print("Lỗi: Bluetooth chưa được bật!");
+        setState(() { currentAuthStatus = AuthStatus.failed; });
+        return;
+      }
+    }
+
+    // 3. Tìm kiếm HC-05 trong danh sách thiết bị đã ghép đôi
+    try {
+      List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance.getBondedDevices();
+      BluetoothDevice? targetDevice;
+
+      for (BluetoothDevice d in devices) {
+        if (d.name == TARGET_BLUETOOTH_NAME || d.address == TARGET_MAC_ADDRESS) {
+          targetDevice = d;
+          break;
+        }
+      }
+
+      if (targetDevice == null) {
+        print("Lỗi: Không tìm thấy mạch HC-05. Hãy vào Cài đặt điện thoại ghép đôi trước!");
+        setState(() { currentAuthStatus = AuthStatus.failed; });
+        return;
+      }
+
+      // 4. Thực hiện kết nối Socket
+      print("Đang kết nối tới ${targetDevice.name}...");
+      _connection = await BluetoothConnection.toAddress(targetDevice.address);
+
+      if (_connection != null && _connection!.isConnected) {
+        print("KẾT NỐI THÀNH CÔNG!");
+        setState(() {
+          currentAuthStatus = AuthStatus.success;
         });
-    } else {
-      setState(() {
-        currentAuthStatus = AuthStatus.failed;
-      });
+      } else {
+        setState(() { currentAuthStatus = AuthStatus.failed; });
+      }
+
+    } catch (e) {
+      print("Lỗi ngoại lệ khi kết nối: $e");
+      setState(() { currentAuthStatus = AuthStatus.failed; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (currentAuthStatus == AuthStatus.success) {
+      // TODO: Truyền biến _connection sang MainControlScreen để lát nữa dùng gửi dữ liệu
       return const MainControlScreen();
     }
     
-    // FIX 3: Truyền hàm gọi lại (callback) sang màn hình Radar
     return RadarScanScreen(
       onRetry: () {
         setState(() {
           currentAuthStatus = AuthStatus.scanning;
         });
-        _startBluetoothConnectionMock();
+        _startRealBluetoothConnection();
       },
     );
   }
