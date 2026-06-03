@@ -4,13 +4,26 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
-import 'package:cryptography/cryptography.dart';
+import 'package:pointycastle/export.dart';
+import 'dart:math';
 
 const String TARGET_BLUETOOTH_NAME = "NHOM5_MHT1"; 
 const String TARGET_MAC_ADDRESS = "00:25:11:02:84:46"; 
 
 enum AuthStatus { scanning, failed, success }
 AuthStatus currentAuthStatus = AuthStatus.scanning;
+
+// Helper to create a cryptographically secure random number generator for key generation.
+SecureRandom _getSecureRandom() {
+  final secureRandom = FortunaRandom();
+  final seedSource = Random.secure();
+  final seeds = <int>[];
+  for (int i = 0; i < 32; i++) {
+    seeds.add(seedSource.nextInt(256));
+  }
+  secureRandom.seed(KeyParameter(Uint8List.fromList(seeds)));
+  return secureRandom;
+}
 
 bool isDeviceApproved = false; 
 
@@ -295,27 +308,25 @@ class _MainControlScreenState extends State<MainControlScreen> {
 
   Future<void> _sendChunkedMessage(String payload) async {
     Uint8List bytes = utf8.encode(payload);
-    int chunkSize = 32;
+    // Giảm kích thước mỗi lần gửi và tăng delay để Arduino (SoftwareSerial) kịp đọc
+    int chunkSize = 16; 
     
     print("=== BAT DAU GUI ===");
-    print("Tong bytes: ${bytes.length}");
+    print("Tong bytes: ${bytes.length} | Payload: $payload");
     
-    // Dua lệnh gui vao cuoi hang doi microtask de UI nhac ngon tay duoc thuc thi truoc
-    Future.microtask(() async {
-      try {
-        for (int i = 0; i < bytes.length; i += chunkSize) {
-          int end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
-          Uint8List chunk = bytes.sublist(i, end);
-          
-          widget.connection.output.add(chunk);
-          await widget.connection.output.allSent;
-          await Future.delayed(const Duration(milliseconds: 20));
-        }
-        print("=== GUI XONG ===");
-      } catch (e) {
-        print("=== LOI GUI: $e ===");
+    try {
+      for (int i = 0; i < bytes.length; i += chunkSize) {
+        int end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+        Uint8List chunk = bytes.sublist(i, end);
+        
+        widget.connection.output.add(chunk);
+        await widget.connection.output.allSent;
+        await Future.delayed(const Duration(milliseconds: 50)); // Chờ 50ms giữa các chunk
       }
-    });
+      print("=== GUI XONG ===");
+    } catch (e) {
+      print("=== LOI GUI: $e ===");
+    }
   }
 
   void _sendRequestKeyCommand() {
@@ -323,8 +334,10 @@ class _MainControlScreenState extends State<MainControlScreen> {
     _sendChunkedMessage(rawPayload); 
   }
 
-  void _sendOpenDoorCommand() {
-    String rawPayload = "OPEN_DOOR_CMD $_pubKeyBase64\n";
+  // Chuyển thành hàm async để chờ tạo chữ ký
+  void _sendOpenDoorCommand() async {
+    String signature = await _crypto.signMessage("KHOAI_DOOR_UNLOCK");
+    String rawPayload = "OPEN_DOOR_CMD $_pubKeyBase64 $signature\n";
     _sendChunkedMessage(rawPayload);
   }
 
@@ -407,7 +420,7 @@ class _MainControlScreenState extends State<MainControlScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ElevatedButton.icon(
-              onPressed: _isKeyInitialized ? _sendOpenDoorCommand : null,
+              onPressed: _isKeyInitialized ? _sendOpenDoorCommand : null, // onPressed có thể là hàm async
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
                 backgroundColor: _isKeyInitialized ? Colors.green : Colors.grey,
@@ -433,40 +446,55 @@ class _MainControlScreenState extends State<MainControlScreen> {
   }
 }
 
+/// Sử dụng thư viện PointyCastle để tạo khóa và ký bằng thuật toán ECDSA P-256
 class CryptoEngine {
-  // Sua kieu du lieu thanh lop Cha truu tuong phu hop voi moi thuat toan EC
-  KeyPair? _keyPair;
-  PublicKey? _publicKey;
-
-  final _algo = Ed25519();
+  AsymmetricKeyPair<ECPublicKey, ECPrivateKey>? _keyPair;
 
   Future<void> generateKeyPair() async {
-    _keyPair = await _algo.newKeyPair();
-    _publicKey = await _keyPair!.extractPublicKey();
-  }
-
-  Future<String> getPublicKeyAsBase64() async {
-    if (_publicKey == null) return "NULL_KEY";
+    final keyGen = ECKeyGenerator();
     
-    try {
-      if (_publicKey is EcPublicKey) {
-        final ecPubKey = _publicKey as EcPublicKey;
-        final bytes = Uint8List.fromList([...ecPubKey.x, ...ecPubKey.y]);
-        return base64Encode(bytes);
-      } else if (_publicKey is SimplePublicKey) {
-        final simplePubKey = _publicKey as SimplePublicKey;
-        return base64Encode(simplePubKey.bytes);
-      }
-      return "UNKNOWN_KEY_TYPE_${_publicKey.runtimeType}";
-    } catch (e) {
-      return "ERROR_ENCODE";
-    }
+    final params = ECKeyGeneratorParameters(ECCurve_secp256r1());
+    final random = _getSecureRandom();
+    keyGen.init(ParametersWithRandom(params, random));
+
+    _keyPair = keyGen.generateKeyPair();
   }
 
+  /// Mã hóa Public Key sang định dạng X.509 (SubjectPublicKeyInfo) mà Java Security yêu cầu
+  Future<String> getPublicKeyAsBase64() async {
+    if (_keyPair == null) return "NULL_KEY";
+
+    ECPublicKey myPublicKey = _keyPair!.publicKey;
+
+    // OIDs for ecPublicKey and secp256r1 (prime256v1)
+    final algorithmId = ASN1Sequence();
+    algorithmId.add(ASN1ObjectIdentifier.fromIdentifier([1, 2, 840, 10045, 2, 1])); // ecPublicKey
+    algorithmId.add(ASN1ObjectIdentifier.fromIdentifier([1, 2, 840, 10045, 3, 1, 7])); // prime256v1
+
+    // Public key as a BIT STRING (uncompressed format: 0x04 | X | Y)
+    final subjectPublicKeyBytes = myPublicKey.Q!.getEncoded(false);
+    final subjectPublicKeyBitString = ASN1BitString(stringValues: subjectPublicKeyBytes);
+
+    final topLevelSequence = ASN1Sequence();
+    topLevelSequence.add(algorithmId);
+    topLevelSequence.add(subjectPublicKeyBitString);
+
+    return base64Encode(topLevelSequence.encode());
+  }
+
+  /// Ký tin nhắn bằng SHA-256/ECDSA và mã hóa chữ ký sang định dạng ASN.1 DER
   Future<String> signMessage(String message) async {
     if (_keyPair == null) return "";
+    final signer = Signer('SHA-256/ECDSA');
+    signer.init(true, PrivateKeyParameter<ECPrivateKey>(_keyPair!.privateKey));
+
     final messageBytes = Uint8List.fromList(utf8.encode(message));
-    final sig = await _algo.sign(messageBytes, keyPair: _keyPair!);
-    return base64Encode(sig.bytes);
+    final signature = signer.generateSignature(messageBytes) as ECSignature;
+
+    final sigSequence = ASN1Sequence();
+    sigSequence.add(ASN1Integer(signature.r));
+    sigSequence.add(ASN1Integer(signature.s));
+
+    return base64Encode(sigSequence.encode());
   }
 }

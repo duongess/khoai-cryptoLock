@@ -73,7 +73,7 @@ void handleMouseClick() {
     sendCommand("[CMD]DO_CLOSE");
   }
   
-  // Kiem tra tuong tac click vao vung bang du lieu de xoa key da dang ky
+  // Kiem tra tuong tu click vao vung bang du lieu de xoa key da dang ky hoac duyet key
   for (int i = 0; i < logs.size(); i++) {
     int yPos = 140 + i * 35;
     if (mouseX > 50 && mouseX < 800 && mouseY > yPos - 25 && mouseY < yPos + 5) {

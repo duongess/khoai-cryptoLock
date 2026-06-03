@@ -1,5 +1,6 @@
 void serialEvent(Serial port) {
   String inString = port.readStringUntil('\n');
+  println("Received from Serial: " + inString);
   
   if (inString != null) {
     inString = trim(inString);
@@ -9,21 +10,20 @@ void serialEvent(Serial port) {
       if (payload.startsWith("KEY_REQUEST")) {
         verifyECC(payload);
       }
-      else if (payload.startsWith("OPEN_DOOR_CMD") && checkAccept(payload)) {
-        sendCommand("[CMD]DO_OPEN");
+      else if (payload.startsWith("OPEN_DOOR_CMD")) {
+        println("Received OPEN_DOOR_CMD, verifying key...");
+        if (checkAccept(payload)) {
+          sendCommand("[CMD]DO_OPEN");
+        } else {
+          sendCommand("[CMD]ERROR_KEY");
+        }
       }
-      else if (payload.startsWith("CLOSE_DOOR_CMD") && checkAccept(payload)) {
-        sendCommand("[CMD]DO_CLOSE");
-      }
-      else {
-        sendCommand("[CMD]ERROR_KEY");
-        // Tu dong ghi nhan key bi tu choi va luu vao file
-        String[] parts = split(payload, " ");
-        if (parts.length >= 2) {
-          String invalidKey = parts[1];
-          String timeStamp = nf(hour(), 2) + ":" + nf(minute(), 2) + ":" + nf(second(), 2);
-          logs.add(new KeyLog(invalidKey, timeStamp, "DECLINE"));
-          saveKeysDB();
+      else if (payload.startsWith("CLOSE_DOOR_CMD")) {
+        println("Received CLOSE_DOOR_CMD, verifying key...");
+        if (checkAccept(payload)) {
+          sendCommand("[CMD]DO_CLOSE");
+        } else {
+          sendCommand("[CMD]ERROR_KEY");
         }
       }
     } 
