@@ -1,13 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_bluetooth_serial_plus/flutter_bluetooth_serial_plus.dart';
+import 'package:cryptography/cryptography.dart';
 
-// ==========================================
-// THÀNH PHẦN 1: CÁC BIẾN TOÀN CỤC
-// ==========================================
 const String TARGET_BLUETOOTH_NAME = "NHOM5_MHT1"; 
-const String TARGET_MAC_ADDRESS = "20:16:04:18:22:25"; 
+const String TARGET_MAC_ADDRESS = "00:25:11:02:84:46"; 
 
 enum AuthStatus { scanning, failed, success }
 AuthStatus currentAuthStatus = AuthStatus.scanning;
@@ -35,9 +35,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ==========================================
-// THÀNH PHẦN 2: LỚP GIAO DIỆN CHUYỂN MÀN HÌNH
-// ==========================================
 class AuthGateWay extends StatefulWidget {
   const AuthGateWay({super.key});
 
@@ -46,18 +43,15 @@ class AuthGateWay extends StatefulWidget {
 }
 
 class _AuthGateWayState extends State<AuthGateWay> {
-  // Biến lưu trữ luồng kết nối để truyền sang màn hình điều khiển
   BluetoothConnection? _connection;
 
   @override
   void initState() {
     super.initState();
-    _startRealBluetoothConnection(); // Gọi hàm thực tế thay vì Mock
+    _startRealBluetoothConnection(); 
   }
 
-  // Hàm kết nối Bluetooth thật
   Future<void> _startRealBluetoothConnection() async {
-    // 1. Xin quyền phần cứng
     Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
@@ -66,23 +60,19 @@ class _AuthGateWayState extends State<AuthGateWay> {
 
     if (statuses[Permission.bluetoothScan] != PermissionStatus.granted ||
         statuses[Permission.bluetoothConnect] != PermissionStatus.granted) {
-      print("Lỗi: Người dùng không cấp quyền Bluetooth!");
       setState(() { currentAuthStatus = AuthStatus.failed; });
       return;
     }
 
-    // 2. Yêu cầu bật Bluetooth nếu đang tắt
     bool? isEnabled = await FlutterBluetoothSerial.instance.isEnabled;
     if (isEnabled == false) {
       isEnabled = await FlutterBluetoothSerial.instance.requestEnable();
       if (isEnabled != true) {
-        print("Lỗi: Bluetooth chưa được bật!");
         setState(() { currentAuthStatus = AuthStatus.failed; });
         return;
       }
     }
 
-    // 3. Tìm kiếm HC-05 trong danh sách thiết bị đã ghép đôi
     try {
       List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance.getBondedDevices();
       BluetoothDevice? targetDevice;
@@ -95,53 +85,40 @@ class _AuthGateWayState extends State<AuthGateWay> {
       }
 
       if (targetDevice == null) {
-        print("Lỗi: Không tìm thấy mạch HC-05. Hãy vào Cài đặt điện thoại ghép đôi trước!");
         setState(() { currentAuthStatus = AuthStatus.failed; });
         return;
       }
 
-      // 4. Thực hiện kết nối Socket
-      print("Đang kết nối tới ${targetDevice.name}...");
       _connection = await BluetoothConnection.toAddress(targetDevice.address);
 
       if (_connection != null && _connection!.isConnected) {
-        print("KẾT NỐI THÀNH CÔNG!");
-        setState(() {
-          currentAuthStatus = AuthStatus.success;
-        });
+        setState(() { currentAuthStatus = AuthStatus.success; });
       } else {
         setState(() { currentAuthStatus = AuthStatus.failed; });
       }
 
     } catch (e) {
-      print("Lỗi ngoại lệ khi kết nối: $e");
       setState(() { currentAuthStatus = AuthStatus.failed; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (currentAuthStatus == AuthStatus.success) {
-      // TODO: Truyền biến _connection sang MainControlScreen để lát nữa dùng gửi dữ liệu
-      return const MainControlScreen();
+    if (currentAuthStatus == AuthStatus.success && _connection != null) {
+      return MainControlScreen(connection: _connection!);
     }
     
     return RadarScanScreen(
       onRetry: () {
-        setState(() {
-          currentAuthStatus = AuthStatus.scanning;
-        });
+        setState(() { currentAuthStatus = AuthStatus.scanning; });
         _startRealBluetoothConnection();
       },
     );
   }
 }
 
-// ==========================================
-// THÀNH PHẦN 3: LỚP MÀN HÌNH QUÉT RADAR
-// ==========================================
 class RadarScanScreen extends StatefulWidget {
-  final VoidCallback onRetry; // Thêm biến nhận callback
+  final VoidCallback onRetry; 
 
   const RadarScanScreen({super.key, required this.onRetry});
 
@@ -200,16 +177,16 @@ class _RadarScanScreenState extends State<RadarScanScreen> with TickerProviderSt
                   },
                 );
               })..add(
-                Icon(
-                  isFailed ? Icons.gpp_bad : Icons.bluetooth_searching,
+                const Icon(
+                  Icons.bluetooth_searching,
                   size: 50,
-                  color: isFailed ? Colors.red : Colors.blue,
+                  color: Colors.blue,
                 ),
               ),
             ),
             const SizedBox(height: 50),
             Text(
-              isFailed ? "KẾT NỐI KHÔNG PHÙ HỢP" : "HÃY KẾT NỐI ĐẾN BLUETOOTH CỬA",
+              isFailed ? "KET NOI KHONG PHU HOP" : "HAY KET NOI DEN BLUETOOTH CUA",
               style: TextStyle(
                 color: isFailed ? Colors.redAccent : Colors.blueAccent,
                 fontSize: 18,
@@ -220,8 +197,8 @@ class _RadarScanScreenState extends State<RadarScanScreen> with TickerProviderSt
             if (isFailed) ...[
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: widget.onRetry, // Sử dụng hàm callback từ Gateway truyền sang
-                child: const Text("Thử kết nối lại"),
+                onPressed: widget.onRetry, 
+                child: const Text("Thu ket noi lai"),
               )
             ]
           ],
@@ -231,31 +208,133 @@ class _RadarScanScreenState extends State<RadarScanScreen> with TickerProviderSt
   }
 }
 
-// ==========================================
-// THÀNH PHẦN 4: LỚP MÀN HÌNH ĐIỀU KHIỂN CHÍNH
-// ==========================================
 class MainControlScreen extends StatefulWidget {
-  const MainControlScreen({super.key});
+  final BluetoothConnection connection;
+  const MainControlScreen({super.key, required this.connection});
 
   @override
   State<MainControlScreen> createState() => _MainControlScreenState();
 }
 
 class _MainControlScreenState extends State<MainControlScreen> {
-  
-  void _sendRequestKeyCommand() {
-    print("Đang gửi chuỗi dữ liệu 32 byte đăng ký qua Bluetooth...");
-    setState(() {
-      isDeviceApproved = true; 
+  final CryptoEngine _crypto = CryptoEngine();
+  StreamSubscription? _incomingSubscription;
+  String _rxBuffer = ""; 
+  bool _isKeyInitialized = false; // Biến cờ chặn bấm nút khi khóa chưa sẵn sàng
+  String _pubKeyBase64 = ""; // Biến lưu chuỗi khóa công khai để dùng lại
+
+  @override
+  void initState() {
+    super.initState();
+    _initCryptoAndBluetooth(); 
+  }
+
+  Future<void> _initCryptoAndBluetooth() async {
+    try {
+      await _crypto.generateKeyPair();
+      _pubKeyBase64 = await _crypto.getPublicKeyAsBase64(); // Lưu key lại 1 lần duy nhất
+      if (mounted) {
+        setState(() {
+          _isKeyInitialized = true; // Mở khóa cho phép bấm nút
+        });
+      }
+      print("[LOG] Key pair khoi tao thanh cong. Key: $_pubKeyBase64");
+    } catch (e) {
+      print("[LOI PHAN CUNG] Khong the sinh khoa mat ma: $e");
+      _pubKeyBase64 = "KEY_GEN_FAILED";
+      if (mounted) {
+        setState(() {
+          _isKeyInitialized = true; 
+        });
+        _showNotification("Loi tao khoa: $e");
+      }
+    }
+    _listenToBluetoothStream();
+  }
+
+  @override
+  void dispose() {
+    _incomingSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _listenToBluetoothStream() {
+    _incomingSubscription = widget.connection.input?.listen((Uint8List data) {
+      _rxBuffer += utf8.decode(data);
+      if (_rxBuffer.contains('\n')) {
+        List<String> lines = _rxBuffer.split('\n');
+        for (int i = 0; i < lines.length - 1; i++) {
+          String msg = lines[i].trim();
+          _parseIncomingMessage(msg);
+        }
+        _rxBuffer = lines.last; 
+      }
     });
   }
 
+  void _parseIncomingMessage(String msg) {
+    if (msg == "APPROVED") {
+      setState(() { isDeviceApproved = true; });
+    } else if (msg == "AUTH_FAILED") {
+      _showNotification("Xac thuc that bai! Khoa bi tu choi.");
+      _logout();
+    } else if (msg == "DOOR_OPENED") {
+      _showNotification("Cua da mo thanh cong!");
+    } else if (msg == "DOOR_CLOSED") {
+      _showNotification("Cua da duoc khoa chat!");
+    }
+  }
+
+  void _logout() {
+    currentAuthStatus = AuthStatus.scanning;
+    isDeviceApproved = false;
+    _incomingSubscription?.cancel();
+    widget.connection.close(); 
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyApp()));
+  }
+
+  Future<void> _sendChunkedMessage(String payload) async {
+    Uint8List bytes = utf8.encode(payload);
+    int chunkSize = 32;
+    
+    print("=== BAT DAU GUI ===");
+    print("Tong bytes: ${bytes.length}");
+    
+    // Dua lệnh gui vao cuoi hang doi microtask de UI nhac ngon tay duoc thuc thi truoc
+    Future.microtask(() async {
+      try {
+        for (int i = 0; i < bytes.length; i += chunkSize) {
+          int end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+          Uint8List chunk = bytes.sublist(i, end);
+          
+          widget.connection.output.add(chunk);
+          await widget.connection.output.allSent;
+          await Future.delayed(const Duration(milliseconds: 20));
+        }
+        print("=== GUI XONG ===");
+      } catch (e) {
+        print("=== LOI GUI: $e ===");
+      }
+    });
+  }
+
+  void _sendRequestKeyCommand() {
+    String rawPayload = "KEY_REQUEST $_pubKeyBase64\n";
+    _sendChunkedMessage(rawPayload); 
+  }
+
   void _sendOpenDoorCommand() {
-    print("Gửi lệnh: OPEN_DOOR_CMD");
+    String rawPayload = "OPEN_DOOR_CMD $_pubKeyBase64\n";
+    _sendChunkedMessage(rawPayload);
   }
 
   void _sendCloseDoorCommand() {
-    print("Gửi lệnh: CLOSE_DOOR_CMD");
+    String rawPayload = "CLOSE_DOOR_CMD $_pubKeyBase64\n";
+    _sendChunkedMessage(rawPayload);
+  }
+
+  void _showNotification(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -267,11 +346,7 @@ class _MainControlScreenState extends State<MainControlScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              currentAuthStatus = AuthStatus.scanning;
-              isDeviceApproved = false;
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyApp()));
-            },
+            onPressed: _logout,
           )
         ],
       ),
@@ -293,25 +368,25 @@ class _MainControlScreenState extends State<MainControlScreen> {
         const Icon(Icons.lock_clock, size: 80, color: Colors.amber),
         const SizedBox(height: 20),
         const Text(
-          "Thiết bị chưa được cấp quyền",
+          "Thiet bi chua duoc cap quyen",
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         const Text(
-          "Vui lòng nhấn nút dưới đây để gửi mã khóa công khai 32 bytes lên màn hình quản lý Processing.",
+          "Vui long nhan nut duoi day de gui ma khoa cong khai len man hinh quan ly Processing.",
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey),
         ),
         const SizedBox(height: 40),
         ElevatedButton.icon(
-          onPressed: _sendRequestKeyCommand,
+          onPressed: _isKeyInitialized ? _sendRequestKeyCommand : null,
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-            backgroundColor: Colors.amber,
+            backgroundColor: _isKeyInitialized ? Colors.amber : Colors.grey,
             foregroundColor: Colors.black,
           ),
-          icon: const Icon(Icons.vpn_key),
-          label: const Text("YÊU CẦU XÁC NHẬN KEY", style: TextStyle(fontWeight: FontWeight.bold)),
+          icon: _isKeyInitialized ? const Icon(Icons.vpn_key) : const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)),
+          label: Text(_isKeyInitialized ? "YEU CAU XAC NHAN KEY" : "DANG TAO KHOA...", style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -324,7 +399,7 @@ class _MainControlScreenState extends State<MainControlScreen> {
         const Icon(Icons.verified_user, size: 80, color: Colors.green),
         const SizedBox(height: 20),
         const Text(
-          "Hệ thống đã sẵn sàng",
+          "He thong da san sang",
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green),
         ),
         const SizedBox(height: 50),
@@ -332,28 +407,66 @@ class _MainControlScreenState extends State<MainControlScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ElevatedButton.icon(
-              onPressed: _sendOpenDoorCommand,
+              onPressed: _isKeyInitialized ? _sendOpenDoorCommand : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                backgroundColor: Colors.green,
+                backgroundColor: _isKeyInitialized ? Colors.green : Colors.grey,
                 foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.lock_open, size: 28),
-              label: const Text("MỞ CỬA", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              label: const Text("MO CUA", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             ElevatedButton.icon(
-              onPressed: _sendCloseDoorCommand,
+              onPressed: _isKeyInitialized ? _sendCloseDoorCommand : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-                backgroundColor: Colors.red,
+                backgroundColor: _isKeyInitialized ? Colors.red : Colors.grey,
                 foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.lock, size: 28),
-              label: const Text("ĐÓNG CỬA", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              label: const Text("DONG CUA", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       ],
     );
+  }
+}
+
+class CryptoEngine {
+  // Sua kieu du lieu thanh lop Cha truu tuong phu hop voi moi thuat toan EC
+  KeyPair? _keyPair;
+  PublicKey? _publicKey;
+
+  final _algo = Ed25519();
+
+  Future<void> generateKeyPair() async {
+    _keyPair = await _algo.newKeyPair();
+    _publicKey = await _keyPair!.extractPublicKey();
+  }
+
+  Future<String> getPublicKeyAsBase64() async {
+    if (_publicKey == null) return "NULL_KEY";
+    
+    try {
+      if (_publicKey is EcPublicKey) {
+        final ecPubKey = _publicKey as EcPublicKey;
+        final bytes = Uint8List.fromList([...ecPubKey.x, ...ecPubKey.y]);
+        return base64Encode(bytes);
+      } else if (_publicKey is SimplePublicKey) {
+        final simplePubKey = _publicKey as SimplePublicKey;
+        return base64Encode(simplePubKey.bytes);
+      }
+      return "UNKNOWN_KEY_TYPE_${_publicKey.runtimeType}";
+    } catch (e) {
+      return "ERROR_ENCODE";
+    }
+  }
+
+  Future<String> signMessage(String message) async {
+    if (_keyPair == null) return "";
+    final messageBytes = Uint8List.fromList(utf8.encode(message));
+    final sig = await _algo.sign(messageBytes, keyPair: _keyPair!);
+    return base64Encode(sig.bytes);
   }
 }

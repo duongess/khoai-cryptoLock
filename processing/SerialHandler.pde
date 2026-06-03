@@ -4,11 +4,10 @@ void serialEvent(Serial port) {
   if (inString != null) {
     inString = trim(inString);
     if (inString.startsWith("[REQ]")) {
-      String payload = inString.substring(5).trim();
+      String payload = inString.substring(6).trim();
       
       if (payload.startsWith("KEY_REQUEST")) {
         verifyECC(payload);
-        sendCommand("[CMD]ACCEPT");
       }
       else if (payload.startsWith("OPEN_DOOR_CMD") && checkAccept(payload)) {
         sendCommand("[CMD]DO_OPEN");

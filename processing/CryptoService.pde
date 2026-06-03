@@ -59,14 +59,17 @@ void verifyECC(String payload) {
     boolean exists = false;
     for (KeyLog l : logs) {
       if (l.keyData.equals(publicKeyToSave)) {
-        l.status = "ACCEPT";
-        l.time = timeStamp;
+        // Chi cap nhat thanh PENDING neu key chua duoc phe duyet truoc do
+        if (!l.status.equals("ACCEPT")) {
+          l.status = "PENDING";
+          l.time = timeStamp;
+        }
         exists = true;
         break;
       }
     }
     if (!exists) {
-      logs.add(new KeyLog(publicKeyToSave, timeStamp, "ACCEPT"));
+      logs.add(new KeyLog(publicKeyToSave, timeStamp, "PENDING"));
     }
     saveKeysDB();
   }

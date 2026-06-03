@@ -6,8 +6,8 @@
 // ==========================================
 // 1. CẤU HÌNH CHÂN (PINS)
 // ==========================================
-#define HC05_RX_PIN 3
-#define HC05_TX_PIN 2
+#define HC05_RX_PIN 2
+#define HC05_TX_PIN 3
 
 // Thứ tự chân cho thư viện AccelStepper (IN1, IN3, IN2, IN4)
 #define MOTOR_IN1 8
@@ -19,7 +19,7 @@
 // 2. CẤU HÌNH TỐC ĐỘ (BAUD RATE)
 // ==========================================
 #define PC_BAUD_RATE 9600   // Giao tiếp cáp USB với Processing
-#define BT_BAUD_RATE 38400    // Giao tiếp HC-05
+#define BT_BAUD_RATE 9600    // Giao tiếp HC-05
 
 // ==========================================
 // 3. THÔNG SỐ ĐỘNG CƠ (28BYJ-48)

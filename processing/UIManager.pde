@@ -42,6 +42,9 @@ void drawTable() {
     } else if (l.status.equals("DECLINE")) {
       fill(255, 80, 80);
       text("DECLINE", 620, yPos - 5);
+    } else if (l.status.equals("PENDING")) {
+      fill(255, 165, 0); // Mau cam cho trang thai cho xac nhan
+      text("PENDING [DUYET]", 620, yPos - 5);
     } else {
       fill(255, 200, 0);
       text(l.status, 620, yPos - 5);
@@ -78,6 +81,11 @@ void handleMouseClick() {
       if (l.status.equals("ACCEPT")) {
         logs.remove(i); // Xoa khoi danh sach neu chu so huu bam vao [XOA]
         saveKeysDB(); // Cap nhat lai database keys.db
+        break;
+      } else if (l.status.equals("PENDING")) {
+        l.status = "ACCEPT"; // Nhan vao de duyet
+        saveKeysDB();
+        sendCommand("[CMD]ACCEPT");
         break;
       }
     }
