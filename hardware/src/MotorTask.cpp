@@ -1,28 +1,21 @@
 #include "MotorTask.h"
 #include "Config.h"
-#include <AccelStepper.h>
 #include <ProcessTask.h>
+#include <Servo.h>
 
-// Thu tu chan giu nguyen theo Macro
-AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4);
+Servo doorServo;
 bool isDoorOpen = false;
 
 void Motor_Init() {
-  stepper.setMaxSpeed(MOTOR_MAX_SPEED);
-  stepper.setAcceleration(MOTOR_ACCELERATION);
-  stepper.setCurrentPosition(0);
+  doorServo.attach(SERVO_PIN);
+  doorServo.write(0); // Đặt servo về vị trí ban đầu
   Serial.println("[LOG] Motor Init Done");
-}
-
-void Motor_Run() {
-  // Tao xung chay dong co (Khong them log vao day de tranh giat lag)
-  stepper.run();
 }
 
 void Motor_OpenDoor() {
   if (!isDoorOpen) {
     PC_SendMessage("LOG", "Mo cua...");
-    stepper.moveTo(STEPS_PER_REV); // Quay 1/4 vong
+    doorServo.write(90); // Quay servo đến vị trí mở cửa
     isDoorOpen = true;
   }
 }
@@ -30,7 +23,7 @@ void Motor_OpenDoor() {
 void Motor_CloseDoor() {
   if (isDoorOpen) {
     PC_SendMessage("LOG", "Dong cua...");
-    stepper.moveTo(-STEPS_PER_REV); // Ve vi tri goc
+    doorServo.write(0); // Quay servo về vị trí đóng cửa
     isDoorOpen = false;
   }
 }

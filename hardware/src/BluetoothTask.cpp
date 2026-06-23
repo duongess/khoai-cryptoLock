@@ -16,19 +16,6 @@ void BT_Init() {
 void BT_Listen() {
   while (hc05.available() > 0) {
     char c = hc05.read();
-    
-    // ĐÃ ẨN LOG RAW: Việc in ra quá nhiều ký tự ở tốc độ Baud 9600
-    // sẽ làm Arduino bị nghẽn (block) và làm rớt các byte tiếp theo của Bluetooth.
-    // Serial.print("[RAW] dec=");
-    // Serial.print((byte)c, DEC);
-    // Serial.print(" hex=0x");
-    // Serial.print((byte)c, HEX);
-    // Serial.print(" char='");
-    // if (c >= 32 && c <= 126) Serial.print(c);
-    // else if (c == 13) Serial.print("\\r");
-    // else if (c == 10) Serial.print("\\n");
-    // else Serial.print("???");
-    // Serial.println("'");
 
     if (c == '\n') {
       btBuffer.trim();

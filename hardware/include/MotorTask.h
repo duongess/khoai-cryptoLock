@@ -4,9 +4,6 @@
 // Khởi tạo phần cứng động cơ
 void Motor_Init();
 
-// Hàm chạy động cơ (BẮT BUỘC phải gọi liên tục trong loop() của main)
-void Motor_Run();
-
 // Các lệnh điều khiển từ bên ngoài
 void Motor_OpenDoor();
 void Motor_CloseDoor(); 

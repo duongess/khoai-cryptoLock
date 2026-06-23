@@ -9,11 +9,8 @@
 #define HC05_RX_PIN 2
 #define HC05_TX_PIN 3
 
-// Thứ tự chân cho thư viện AccelStepper (IN1, IN3, IN2, IN4)
-#define MOTOR_IN1 8
-#define MOTOR_IN2 9
-#define MOTOR_IN3 10
-#define MOTOR_IN4 11
+// Thứ tự chân cho thư viện Servo.h (chân PWM)
+#define SERVO_PIN A0
 
 // ==========================================
 // 2. CẤU HÌNH TỐC ĐỘ (BAUD RATE)

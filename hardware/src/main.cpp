@@ -14,7 +14,6 @@ void setup() {
 
 void loop() {
   // Goi lien tuc khong delay
-  Motor_Run();
   BT_Listen();
   PC_Listen();
 }
