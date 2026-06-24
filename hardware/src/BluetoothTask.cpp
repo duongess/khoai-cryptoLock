@@ -3,7 +3,7 @@
 #include "ProcessTask.h"
 #include <SoftwareSerial.h>
 
-SoftwareSerial hc05(HC05_RX_PIN, HC05_TX_PIN);
+SoftwareSerial hc05(HC05_TX_PIN, HC05_RX_PIN);
 String btBuffer = "";
 
 void BT_Init() {

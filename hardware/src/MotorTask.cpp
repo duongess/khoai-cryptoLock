@@ -8,7 +8,7 @@ bool isDoorOpen = false;
 
 void Motor_Init() {
   doorServo.attach(SERVO_PIN);
-  doorServo.write(0); // Đặt servo về vị trí ban đầu
+  doorServo.write(180); // Đặt servo về vị trí ban đầu
   Serial.println("[LOG] Motor Init Done");
 }
 
@@ -23,7 +23,7 @@ void Motor_OpenDoor() {
 void Motor_CloseDoor() {
   if (isDoorOpen) {
     PC_SendMessage("LOG", "Dong cua...");
-    doorServo.write(0); // Quay servo về vị trí đóng cửa
+    doorServo.write(180); // Quay servo về vị trí đóng cửa
     isDoorOpen = false;
   }
 }
